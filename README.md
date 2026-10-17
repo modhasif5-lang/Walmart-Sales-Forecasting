@@ -1,69 +1,145 @@
 # Walmart Sales Forecasting
 
-## Project Overview
-This project predicts weekly sales for 45 Walmart stores and 81 departments across different regions. It tests multiple machine learning models to help store managers plan inventory and staffing accurately.
+Predicts weekly sales for 45 Walmart stores across 81 departments using historical sales, macroeconomic features, and holiday flags. The project benchmarks Ridge, Lasso, Decision Tree, and Random Forest regressors — with Random Forest achieving an R² of **0.971** and RMSE of **$3,881** — to help store managers plan inventory and staffing around seasonal demand spikes.
 
 ---
 
-## Key Findings
+## Quickstart
 
-- **Random Forest Performs Best:** The Random Forest model achieved the highest test accuracy with an R-squared score of 0.971 and the lowest test error of $3,881. It predicts weekly store sales with high precision.
-- **Linear Models Fail on Complex Trends:** Ridge and Lasso regression scored poorly (R-squared of about 0.08). Simple straight-line formulas cannot capture seasonal jumps in retail sales.
-- **Holidays Drive Massive Spikes:** Major holiday weeks like Thanksgiving and Christmas show huge jumps in customer purchases. Proper holiday preparation makes the biggest difference to total annual revenue.
-- **Store Size and Location Matter:** Larger stores (Type A) consistently record much higher weekly revenue than smaller stores. Floor space directly influences customer footfall and total sales volume.
-- **Specific Departments Drive Most Sales:** A handful of departments generate the majority of total store income. Managers must prioritize stock for these critical departments.
+```bash
+# 1. Clone
+git clone <repo-url>
+cd "Walmart Sales Forecasting"
+
+# 2. Create a virtual environment (recommended)
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+
+# 3. Install dependencies (no requirements.txt in repo — derived from notebook imports)
+pip install numpy pandas matplotlib seaborn plotly scikit-learn jupyter
+
+# 4. Launch the notebook
+jupyter notebook Walmart_Sales_Forecasting.ipynb
+```
+
+> **Python version:** The notebook kernel metadata specifies **Python 3.11.9**. It originally ran on Google Colab with GPU enabled. Any Python 3.9+ should work.
+
+> **[unverified]** Whether specific library version pins are needed. No `requirements.txt` exists in the repo.
 
 ---
 
-## Model Performance Summary
+## Configuration
 
-| Model | Test RMSE | Test R-Squared | Outcome |
-| :--- | :--- | :--- | :--- |
-| **Ridge Regression** | $21,812 | 0.085 | Poor |
-| **Lasso Regression** | $22,092 | 0.061 | Poor |
-| **Decision Tree** | $4,889 | 0.954 | Very Good |
+This repo has **no environment variables, config files, or CLI flags**. All behaviour is controlled inside the notebook.
+
+| Item | Location | What it does |
+|:---|:---|:---|
+| **Data paths** | Cell 2 of notebook | Hardcoded as `E:/Project/Walmart Sales Forecasting/*.csv`. **You must update these** to match your local directory. |
+| **Train/test split** | `train_test_split(…)` call | Sets the holdout fraction for model evaluation. |
+| **Hyperparameter grids** | `GridSearchCV` / `RandomizedSearchCV` cells | Defines the search space for Decision Tree and Random Forest tuning. |
+| **`.gitignore`** | Repo root | Ignores `.ipynb_checkpoints/`, `*.pyc`, `__pycache__/`, `.env`. |
+
+### Data Files
+
+| File | Size | Key Columns |
+|:---|:---|:---|
+| `train.csv` | ~12 MB | `Store`, `Dept`, `Date`, `Weekly_Sales`, `IsHoliday` |
+| `test.csv` | ~2.5 MB | `Store`, `Dept`, `Date`, `IsHoliday` |
+| `features.csv` | ~580 KB | `Store`, `Date`, `Temperature`, `Fuel_Price`, `MarkDown1`–`5`, `CPI`, `Unemployment`, `IsHoliday` |
+| `stores.csv` | ~0.5 KB | `Store`, `Type`, `Size` |
+
+---
+
+## Usage
+
+The entire workflow lives in one Jupyter notebook: [`Walmart_Sales_Forecasting.ipynb`](file:///e:/Project/Walmart%20Sales%20Forecasting/Walmart_Sales_Forecasting.ipynb).
+
+### Load data
+
+```python
+train_df = pd.read_csv('train.csv')
+features_df = pd.read_csv('features.csv')
+stores_df = pd.read_csv('stores.csv')
+```
+
+### Train the best model (Random Forest)
+
+```python
+from sklearn.ensemble import RandomForestRegressor
+
+rf = RandomForestRegressor()
+rf.fit(X_train, y_train)
+y_pred = rf.predict(X_test)
+```
+
+### Evaluate predictions
+
+```python
+from sklearn.metrics import mean_squared_error as mse, r2_score
+from math import sqrt
+
+rmse = sqrt(mse(y_test, y_pred))
+r2 = r2_score(y_test, y_pred)
+print(f"RMSE: ${rmse:,.0f}  |  R²: {r2:.3f}")
+```
+
+### Tune hyperparameters
+
+```python
+from sklearn.model_selection import GridSearchCV
+
+grid = GridSearchCV(RandomForestRegressor(), param_grid={...}, cv=5)
+grid.fit(X_train, y_train)
+```
+
+> The snippets above are simplified. See the notebook for the full feature-engineering pipeline (merging `features.csv` and `stores.csv`, date extraction, markdown handling) and the exact param grids.
+
+### Model Results
+
+| Model | Test RMSE | Test R² | Verdict |
+|:---|:---|:---|:---|
+| Ridge Regression | $21,812 | 0.085 | Poor |
+| Lasso Regression | $22,092 | 0.061 | Poor |
+| Decision Tree | $4,889 | 0.954 | Very Good |
 | **Random Forest** | **$3,881** | **0.971** | **Best** |
 
 ---
 
-## Concepts Used in This Project
+## Development
 
-### 1. Data Cleaning
-Data cleaning finds and fixes missing values, wrong formats, and errors in raw tables. Clean data prevents computer programs from crash events and stops wrong calculations.
+### Run the notebook end-to-end (headless)
 
-### 2. Exploratory Data Analysis (EDA)
-Exploratory data analysis uses charts and summary numbers to inspect raw data. It reveals hidden patterns, peak periods, and unusual values before model building.
+```bash
+jupyter nbconvert --to notebook --execute Walmart_Sales_Forecasting.ipynb
+```
 
-### 3. Feature Engineering
-Feature engineering creates new helpful variables from existing columns, such as week numbers extracted from dates. Better inputs allow algorithms to detect annual sales cycles easily.
+**[unverified]** — This uses standard `nbconvert`. The repo has no Makefile, test script, or CI configuration.
 
-### 4. Train-Test Split
-Train-test split divides all available records into two separate groups. The model learns from the first group and proves its real skill on the unseen second group.
+### Tests
 
-### 5. Linear Regression
-Linear regression tries to draw a single straight line through data points. It works well for simple trends but fails on seasonal retail spikes.
+There are **no automated tests**. Validation is done visually via plots and metric print-outs inside the notebook.
 
-### 6. Ridge and Lasso Regression
-These techniques add simple penalties to linear equations to control runaway numbers. They keep formulas stable but still fail on non-linear sales problems.
+### Contributing
 
-### 7. Decision Tree Regressor
-A decision tree makes predictions through a step-by-step series of simple yes-no questions. It handles complex data easily but sometimes memorizes training records too closely.
-
-### 8. Random Forest Regressor
-Random forest combines predictions from dozens of different decision trees at the same time. The team of trees reduces errors and delivers balanced, accurate forecasts.
-
-### 9. Hyperparameter Tuning (GridSearchCV)
-Hyperparameter tuning tests multiple computer settings automatically to find the best setup for a model. It selects the exact values that produce the lowest prediction error.
-
-### 10. Root Mean Squared Error (RMSE)
-RMSE measures the average dollar gap between predicted sales and actual sales. Lower values mean the model made closer guesses.
-
-### 11. R-Squared Score (R2)
-The R-squared score shows what fraction of total sales changes the model explains. A score near 1.0 means the model tracks customer demand almost perfectly.
+1. Fork the repo and create a feature branch.
+2. Update the hardcoded data paths to use relative paths (e.g., `./train.csv`).
+3. Ensure the notebook runs top-to-bottom without errors before opening a PR.
+4. Large CSVs are already tracked in Git. **[unverified]** whether Git LFS is set up.
 
 ---
 
-## How to Run
-1. Place `train.csv`, `stores.csv`, and `features.csv` in the project root folder.
-2. Open `Walmart_Sales_Forecasting.ipynb` in VS Code or Jupyter Notebook.
-3. Run all notebook cells to inspect charts and train the forecasting models.
+## Project Structure
+
+```
+├── Walmart_Sales_Forecasting.ipynb   # Main analysis & modelling notebook
+├── train.csv                         # Historical weekly sales (target variable)
+├── test.csv                          # Holdout set (no Weekly_Sales column)
+├── features.csv                      # Store-level macro & promotional features
+├── stores.csv                        # Store metadata (type, size)
+├── sales_forecasting_banner.jpg      # Banner image
+├── README.md
+└── .gitignore
+```
